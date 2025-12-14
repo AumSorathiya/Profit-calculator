@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meesho Seller Profitability Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-4 md:p-8">
+    <div id="root" class="container mx-auto"></div>
+
+    <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const MeeshoCalculator = () => {
+        const [formData, setFormData] = useState({
+            productPrice: '',
+            sellingPrice: '',
+            shippingFee: '40',
+            packagingFee: '10',
+            advertisementCost: '0',
+            gstRate: '18',
+            returnPercentage: '10',
+            meeshoCommission: '0'
+        });
+
+        const [results, setResults] = useState({
+            totalRevenue: 0,
+            gstAmount: 0,
+            itc: 0,
+            netGstPayable: 0,
+            returnLoss: 0,
+            totalExpenses: 0,
+            finalProfit: 0,
+            profitMargin: 0
+        });
+
+        const gstRates = [
+            { value: '0', label: '0%' },
+            { value: '5', label: '5%' },
+            { value: '12', label: '12%' },
+            { value: '18', label: '18%' },
+            { value: '28', label: '28%' }
+        ];
+
+        const handleInputChange = (e) => {
+            const { name, value } = e.target;
+            setFormData(prev => ({
+                ...prev,
+                [name]: value
+            }));
+        };
+
+        useEffect(() => {
+            calculateResults();
+        }, [formData]);
+
+        const calculateResults = () => {
+            const {
+                productPrice,
+                sellingPrice,
+                shippingFee,
+                packagingFee,
+                advertisementCost,
+                gstRate,
+                returnPercentage,
+                meeshoCommission
+            } = formData;
+
+            // Convert all string inputs to numbers
+            const price = parseFloat(productPrice) || 0;
+            const sellPrice = parseFloat(sellingPrice) || 0;
+            const shipping = parseFloat(shippingFee) || 0;
+            const packaging = parseFloat(packagingFee) || 0;
+            const adCost = parseFloat(advertisementCost) || 0;
+            const gst = parseFloat(gstRate) / 100 || 0;
+            const returnPerc = parseFloat(returnPercentage) / 100 || 0;
+            const commission = (parseFloat(meeshoCommission) / 100) * sellPrice || 0;
+
+            // (1) Meesho Selling Price = Shipping Charge + Product Listing Price
+            const meeshoSellingPrice = shipping + sellPrice;
+            
+            // (2) GST = Meesho Selling Price * GST Rate
+            const gstAmount = meeshoSellingPrice * gst;
+            
+            // (3) Commission = Meesho Selling Price * (Commission % / 100)
+            const commissionAmount = (parseFloat(meeshoCommission) / 100) * meeshoSellingPrice;
+            
+            // (4) Return = Meesho Selling Price * (Return % / 100)
+            const returnAmount = meeshoSellingPrice * returnPerc;
+            
+            // (5) ITC on Product = Product Purchase Price - (Product Purchase Price / (1 + GST Rate))
+            const itcOnProduct = price - (price / (1 + gst));
+            
+            // (6) ITC on Shipping = Shipping Charge - (Shipping Charge / (1 + GST Rate))
+            const itcOnShipping = shipping - (shipping / (1 + gst));
+            
+            // (7) Net ITC = ITC on Product + ITC on Shipping
+            const netITC = itcOnProduct + itcOnShipping;
+            
+            // (8) Total Cost = Product Price + Shipping + Ad Cost + Commission + GST + Return + Packaging - Net ITC
+            const totalCost = price + shipping + adCost + commissionAmount + gstAmount + returnAmount + packaging - netITC;
+            
+            // (9) Final Profit = Meesho Selling Price - Total Cost
+            const finalProfit = meeshoSellingPrice - totalCost;
+            
+            // (10) Profit % = (Final Profit / Total Cost) * 100
+            const profitMargin = totalCost > 0 ? (finalProfit / totalCost) * 100 : 0;
+            
+            // For display purposes
+            const totalRevenue = meeshoSellingPrice;
+            const totalExpenses = totalCost;
+
+            setResults({
+                totalRevenue: meeshoSellingPrice,
+                gstAmount,
+                itc: netITC,
+                netGstPayable: 0, // Not used in new calculation
+                returnLoss: returnAmount,
+                totalExpenses: totalCost,
+                finalProfit,
+                profitMargin: isFinite(profitMargin) ? profitMargin : 0
+            });
+        };
+
+        const formatCurrency = (amount) => {
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+        };
+
+        return (
+            <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-6">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-center mb-2 text-indigo-700">
+                        Meesho Seller Profitability Calculator
+                    </h1>
+                    <p className="text-sm sm:text-base text-gray-600 text-center mb-4 sm:mb-6">
+                        Calculate your exact profit margins and optimize your Meesho selling strategy
+                    </p>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                    {/* Left Column - Input Form */}
+                    <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                        <div className="flex items-center mb-4 pb-3 border-b border-gray-100">
+                            <i data-lucide="edit-3" className="w-5 h-5 mr-2 text-indigo-600"></i>
+                            <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
+                                Input Values
+                            </h2>
+                        </div>
+                        
+                        <div className="space-y-4 sm:space-y-5">
+                            <div className="space-y-1">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Product Price (₹)
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                                    <input
+                                        type="number"
+                                        name="productPrice"
+                                        value={formData.productPrice}
+                                        onChange={handleInputChange}
+                                        className="w-full pl-8 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base"
+                                        placeholder="e.g., 100"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Selling Price (₹)
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                                    <input
+                                        type="number"
+                                        name="sellingPrice"
+                                        value={formData.sellingPrice}
+                                        onChange={handleInputChange}
+                                        className="w-full pl-8 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base"
+                                        placeholder="e.g., 199"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Shipping Fee (₹)
+                                    </label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                                        <input
+                                            type="number"
+                                            name="shippingFee"
+                                            value={formData.shippingFee}
+                                            onChange={handleInputChange}
+                                            className="w-full pl-8 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Packaging Fee (₹)
+                                    </label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                                        <input
+                                            type="number"
+                                            name="packagingFee"
+                                            value={formData.packagingFee}
+                                            onChange={handleInputChange}
+                                            className="w-full pl-8 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Advertisement Cost (₹)
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                                    <input
+                                        type="number"
+                                        name="advertisementCost"
+                                        value={formData.advertisementCost}
+                                        onChange={handleInputChange}
+                                        className="w-full pl-8 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        GST Rate
+                                    </label>
+                                    <div className="relative">
+                                        <select
+                                            name="gstRate"
+                                            value={formData.gstRate}
+                                            onChange={handleInputChange}
+                                            className="w-full pl-3 pr-8 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base appearance-none bg-white"
+                                        >
+                                            {gstRates.map(rate => (
+                                                <option key={rate.value} value={rate.value}>
+                                                    {rate.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                            <i data-lucide="chevron-down" className="w-4 h-4 text-gray-500"></i>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Return Percentage
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            name="returnPercentage"
+                                            value={formData.returnPercentage}
+                                            onChange={handleInputChange}
+                                            className="w-full pl-3 pr-8 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base"
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Meesho Commission
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        name="meeshoCommission"
+                                        value={formData.meeshoCommission}
+                                        onChange={handleInputChange}
+                                        className="w-full pl-3 pr-8 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base"
+                                    />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Column - Results */}
+                    <div className="space-y-4 sm:space-y-6">
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 border-l-4 border-green-500">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-xs sm:text-sm font-medium text-gray-500">Final Profit</p>
+                                        <p className={`text-xl sm:text-2xl font-bold ${results.finalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            {formatCurrency(results.finalProfit)}
+                                        </p>
+                                    </div>
+                                    <div className="p-2 bg-green-50 rounded-lg">
+                                        <i data-lucide="dollar-sign" className="w-5 h-5 sm:w-6 sm:h-6 text-green-500"></i>
+                                    </div>
+                                </div>
+                                <div className="mt-2">
+                                    <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                                        <div 
+                                            className="h-full bg-green-500 transition-all duration-500"
+                                            style={{ width: `${Math.min(100, Math.max(0, results.profitMargin + 50))}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-5 border-l-4 border-blue-500">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-xs sm:text-sm font-medium text-gray-500">Profit Margin</p>
+                                        <p className={`text-xl sm:text-2xl font-bold ${results.profitMargin >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                                            {results.profitMargin.toFixed(2)}%
+                                        </p>
+                                    </div>
+                                    <div className="p-2 bg-blue-50 rounded-lg">
+                                        <i data-lucide="percent" className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500"></i>
+                                    </div>
+                                </div>
+                                <div className="mt-2">
+                                    <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                                        <div 
+                                            className={`h-full transition-all duration-500 ${results.profitMargin >= 0 ? 'bg-blue-500' : 'bg-red-500'}`}
+                                            style={{ width: `${Math.min(100, Math.abs(results.profitMargin) * 2)}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Detailed Breakdown */}
+                        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                            <div className="p-4 sm:p-5 border-b border-gray-100">
+                                <div className="flex items-center">
+                                    <i data-lucide="bar-chart-2" className="w-5 h-5 mr-2 text-indigo-600"></i>
+                                    <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
+                                        Detailed Breakdown
+                                    </h2>
+                                </div>
+                            </div>
+                            
+                            <div className="divide-y divide-gray-100">
+                                <div className="p-3 sm:p-4 hover:bg-gray-50 transition-colors">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center">
+                                            <i data-lucide="tag" className="w-4 h-4 mr-2 text-gray-400"></i>
+                                            <span className="text-sm sm:text-base text-gray-600">Meesho Selling Price</span>
+                                        </div>
+                                        <span className="font-medium text-sm sm:text-base">{formatCurrency(results.totalRevenue)}</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="p-3 sm:p-4 hover:bg-gray-50 transition-colors">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center">
+                                            <i data-lucide="receipt" className="w-4 h-4 mr-2 text-red-400"></i>
+                                            <span className="text-sm sm:text-base text-gray-600">GST on Sales ({formData.gstRate}%)</span>
+                                        </div>
+                                        <span className="text-red-500 font-medium text-sm sm:text-base">-{formatCurrency(results.gstAmount)}</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="p-3 sm:p-4 hover:bg-gray-50 transition-colors">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center">
+                                            <i data-lucide="credit-card" className="w-4 h-4 mr-2 text-green-400"></i>
+                                            <span className="text-sm sm:text-base text-gray-600">ITC (Tax Credit)</span>
+                                        </div>
+                                        <span className="text-green-500 font-medium text-sm sm:text-base">+{formatCurrency(results.itc)}</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="p-3 sm:p-4 hover:bg-gray-50 transition-colors">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center">
+                                            <i data-lucide="file-text" className="w-4 h-4 mr-2 text-blue-400"></i>
+                                            <span className="text-sm sm:text-base text-gray-600">Net GST Payable</span>
+                                        </div>
+                                        <span className="text-red-500 font-medium text-sm sm:text-base">-{formatCurrency(results.netGstPayable)}</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="p-3 sm:p-4 hover:bg-gray-50 transition-colors">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center">
+                                            <i data-lucide="refresh-ccw" className="w-4 h-4 mr-2 text-orange-400"></i>
+                                            <span className="text-sm sm:text-base text-gray-600">Return Loss ({formData.returnPercentage}%)</span>
+                                        </div>
+                                        <span className="text-red-500 font-medium text-sm sm:text-base">-{formatCurrency(results.returnLoss)}</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="p-4 bg-gray-50">
+                                    <div className="flex justify-between items-center">
+                                        <span className="font-medium text-sm sm:text-base">Total Cost</span>
+                                        <span className="text-indigo-600 font-semibold text-base sm:text-lg">{formatCurrency(results.totalExpenses)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="mt-8 text-center">
+                    <p className="text-xs sm:text-sm text-gray-500">
+                        Meesho Seller Profitability Calculator - All calculations are done in real-time
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                        © {new Date().getFullYear()} Meesho Seller Tools
+                    </p>
+                </div>
+            </div>
+        );
+    };
+
+    // Render the app
+    ReactDOM.render(<MeeshoCalculator />, document.getElementById('root'));
+    
+    // Initialize Lucide icons
+    lucide.createIcons();
+    </script>
+</body>
+</html>
